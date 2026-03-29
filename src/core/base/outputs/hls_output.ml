@@ -90,6 +90,10 @@ let hls_proto frame_t =
              ([], Lang.bool_t),
              "Replay ID3 data on each segment to make sure new listeners \
               always start with fresh value. Enabled by default." );
+           ( "daterange",
+             ([], Lang.bool_t),
+             "Set to `true` to enable EXT-X-DATERANGE tags from metadata. \
+              Metadata is base64-encoded as JSON in the X-PAYLOAD attribute." );
            ("extra_tags", ([], Lang.list_t Lang.string_t), "Extra tags");
            ( "video_size",
              ([], Lang.product_t Lang.int_t Lang.int_t),
@@ -321,6 +325,7 @@ type stream = {
   extname : string;
   id3_enabled : bool;
   replay_id3 : bool;
+  daterange_enabled : bool;
   stream_extra_tags : string list;
   mutable pending_extra_tags : string list Atomic.t;
   mutable metadata : metadata;
@@ -548,6 +553,11 @@ class hls_output p =
           | b -> b
           | exception Not_found -> true
       in
+      let daterange_enabled =
+        match Lang.to_bool (List.assoc "daterange" stream_info) with
+          | b -> b
+          | exception Not_found -> false
+      in
       let stream_extra_tags =
         match
           List.map
@@ -567,6 +577,7 @@ class hls_output p =
         extname;
         id3_enabled;
         replay_id3;
+        daterange_enabled;
         stream_extra_tags;
         pending_extra_tags = Atomic.make [];
         metadata = `None;
@@ -1127,9 +1138,43 @@ class hls_output p =
     method encode_metadata m =
       List.iter
         (fun s ->
-          match s.metadata with
+          (match s.metadata with
             | `Sent m' when Frame.Metadata.Export.equal m m' -> ()
-            | _ -> s.metadata <- `Todo m)
+            | _ -> s.metadata <- `Todo m);
+          if s.daterange_enabled then (
+            let meta_list = Frame.Metadata.Export.to_list m in
+            let payload =
+              Lang_string.encode64
+                (Json.to_string ~compact:true ~json5:false
+                   (`Assoc
+                      (List.map
+                         (fun (k, v) -> (k, `String v))
+                         meta_list)))
+            in
+            let id =
+              Printf.sprintf "meta-%d-%d" s.position
+                (int_of_float (Unix.gettimeofday () *. 1000.))
+            in
+            let tm = Unix.gmtime (Unix.gettimeofday ()) in
+            let start_date =
+              Printf.sprintf "%04d-%02d-%02dT%02d:%02d:%02dZ"
+                (1900 + tm.Unix.tm_year)
+                (1 + tm.Unix.tm_mon)
+                tm.Unix.tm_mday tm.Unix.tm_hour tm.Unix.tm_min tm.Unix.tm_sec
+            in
+            let tag =
+              Printf.sprintf
+                "#EXT-X-DATERANGE:ID=\"%s\",START-DATE=\"%s\",X-PAYLOAD=\"%s\""
+                id start_date payload
+            in
+            let rec append () =
+              let tags = Atomic.get s.pending_extra_tags in
+              if
+                not
+                  (Atomic.compare_and_set s.pending_extra_tags tags (tag :: tags))
+              then append ()
+            in
+            append ()))
         streams
   end
 
