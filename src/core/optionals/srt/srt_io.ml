@@ -127,8 +127,8 @@ let mode_of_value v =
         raise
           (Error.Invalid_value
              ( v,
-               "Invalid mode! Should be one of: `\"listener\"` or `\"caller\"`."
-             ))
+               "Invalid mode! Should be one of: `\"listener\"` or `\"caller\"`.",
+               [] ))
 
 let string_of_mode = function `Listener -> "listener" | `Caller -> "caller"
 
@@ -372,7 +372,9 @@ let parse_common_options p =
       | _ ->
           raise
             (Error.Invalid_value
-               (v, "Valid values are: `\"system\"`, `\"ipv4\"` or `\"ipv6\"`."))
+               ( v,
+                 "Valid values are: `\"system\"`, `\"ipv4\"` or `\"ipv6\"`.",
+                 [] ))
   in
   let ipv6only = Lang.to_valued_option Lang.to_bool (List.assoc "ipv6only" p) in
   let passphrase_v = List.assoc "passphrase" p in
@@ -381,11 +383,13 @@ let parse_common_options p =
     | Some s when String.length s < 10 ->
         raise
           (Error.Invalid_value
-             (passphrase_v, "Passphrase must be at least 10 characters long!"))
+             ( passphrase_v,
+               "Passphrase must be at least 10 characters long!",
+               [] ))
     | Some s when String.length s > 79 ->
         raise
           (Error.Invalid_value
-             (passphrase_v, "Passphrase must be at most 79 characters long!"))
+             (passphrase_v, "Passphrase must be at most 79 characters long!", []))
     | _ -> ());
   let streamid =
     Lang.to_valued_option Lang.to_string (List.assoc "streamid" p)
@@ -1020,9 +1024,13 @@ class input_caller ~enforced_encryption ~pbkeylen ~passphrase ~streamid
 
 let _ =
   let return_t = Lang.frame_t (Lang.univ_t ()) Frame.Fields.empty in
-  Lang.add_operator ~base:Modules.input "srt" ~return_t ~category:`Input
+  Lang.add_operator ~base:Modules.input "srt" ~return_t
+    ~category:(`Input `Active)
     ~meth:(meth () @ Start_stop.meth ())
     ~callbacks:(callbacks @ Start_stop.callbacks ~label:"source")
+    ~self_sync_description:
+      "This source uses the SRT stream as synchronization source when \
+       `self_sync=true` and connected."
     ~descr:"Receive a SRT stream from a distant agent."
     (common_options ~mode:`Listener
     @ Start_stop.active_source_proto ~fallible_opt:`Nope
@@ -1312,7 +1320,7 @@ let _ =
         with Not_found ->
           raise
             (Error.Invalid_value
-               (format_val, "Cannot get a stream encoder for that format"))
+               (format_val, "Cannot get a stream encoder for that format", []))
       in
       match mode with
         | `Caller ->

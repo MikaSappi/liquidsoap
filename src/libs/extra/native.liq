@@ -1,4 +1,5 @@
 # Native reimplementation of track functions.
+# @category Source / Track processing
 let native = ()
 
 # Create a source that plays only one track of the input source.
@@ -25,8 +26,7 @@ def native.fallback(~id=null, ~track_sensitive=true, sources) =
 
   infallible =
     getter.is_constant(sources)
-  and
-    not (list.exists(source.fallible, getter.get(sources)))
+    and not (list.exists(source.fallible, getter.get(sources)))
 
   source.dynamic(
     id=id,
@@ -85,6 +85,7 @@ def native.switch(~id=null, ~track_sensitive=true, sources) =
 end
 
 # This allows doing `open native`
+# @category Source / Track processing
 let native.request = request
 
 # @docof request.dynamic
@@ -191,10 +192,10 @@ def native.request.dynamic(%argsof(request.dynamic), f) =
   end
 
   source.dynamic(id=id, track_sensitive=true, s).{
-    fetch=fetch,
-    queue=get_queue,
-    add=add,
-    set_queue=set_queue,
-    current=get_current
+    fetch = fetch,
+    queue = get_queue,
+    add = add,
+    set_queue = set_queue,
+    current = get_current
   }
 end

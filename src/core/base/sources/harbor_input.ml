@@ -56,6 +56,7 @@ class virtual http_input_base ~dumpfile ~logfile ~bufferize ~max ~replay_meta
     inherit! Generated.source ~empty_on_abort:false ~replay_meta ~bufferize ()
     val relay_socket = Atomic.make None
     val mutable pending_headers : (string * string) list = []
+    val mutable pending_metadata : Frame.Metadata.t option = None
 
     (** Function to read on socket. *)
     val mutable relay_read = fun _ _ _ -> assert false
@@ -94,20 +95,20 @@ class virtual http_input_base ~dumpfile ~logfile ~bufferize ~max ~replay_meta
 
     (* Insert metadata *)
     method encode_metadata m =
-      if self#is_up then (
-        (* Metadata may contain only the "song" value
-         * or "artist" and "title". Here, we use "song"
-         * as the "title" field if "title" is not provided. *)
-        let m =
-          if not (Frame.Metadata.mem "title" m) then (
-            try Frame.Metadata.add "title" (Frame.Metadata.find "song" m) m
-            with _ -> m)
-          else m
-        in
-        self#log#important "New metadata chunk %s -- %s."
-          (try Frame.Metadata.find "artist" m with _ -> "?")
-          (try Frame.Metadata.find "title" m with _ -> "?");
-        Generator.add_metadata self#buffer m)
+      (* Metadata may contain only the "song" value
+       * or "artist" and "title". Here, we use "song"
+       * as the "title" field if "title" is not provided. *)
+      let m =
+        if not (Frame.Metadata.mem "title" m) then (
+          try Frame.Metadata.add "title" (Frame.Metadata.find "song" m) m
+          with _ -> m)
+        else m
+      in
+      self#log#important "New metadata chunk %s -- %s."
+        (try Frame.Metadata.find "artist" m with _ -> "?")
+        (try Frame.Metadata.find "title" m with _ -> "?");
+      if self#is_up then Generator.add_metadata self#buffer m
+      else pending_metadata <- Some m
 
     method get_mime_type = Atomic.get mime_type
 
@@ -181,6 +182,8 @@ class virtual http_input_base ~dumpfile ~logfile ~bufferize ~max ~replay_meta
 
     method private start_feed =
       self#register_decoder (Option.get (Atomic.get mime_type));
+      Option.iter (Generator.add_metadata self#buffer) pending_metadata;
+      pending_metadata <- None;
       List.iter (fun fn -> fn pending_headers) on_connect;
       begin match dumpfile with
         | Some f -> (
@@ -355,7 +358,9 @@ let proto ?(buffer_default = 12.) mountpoint_t =
                Lang.record_t
                  [
                    ("address", Lang.string_t);
+                   ("method", Lang.string_t);
                    ("uri", Lang.string_t);
+                   ("query", Lang.metadata_t);
                    ("user", Lang.string_t);
                    ("password", Lang.string_t);
                  ] );
@@ -364,9 +369,14 @@ let proto ?(buffer_default = 12.) mountpoint_t =
       Some Lang.null,
       Some
         "Authentication function. Receives a record with: `user`, `password`, \
-         `uri` (mountpoint) and `address` (client network address) and returns \
-         `true` if the user should be granted access for this login. Override \
-         any other method if used." );
+         `uri` (request URI), `query` (URL query parameters as a list of \
+         key-value pairs), `address` (client network address) and `method` \
+         (connection method: `\"PUT\"` or `\"POST\"` for HTTP source \
+         connections, `\"SOURCE\"` for Xaudiocast/ICE sources, `\"ICY\"` for \
+         Shoutcast/ICY sources, `\"WEBSOCKET\"` for WebSocket sources, \
+         `\"GET\"` for ICY metadata updates) and returns `true` if the user \
+         should be granted access for this login. Override any other method if \
+         used." );
     ( "dumpfile",
       Lang.nullable_t Lang.string_t,
       Some Lang.null,
@@ -423,7 +433,7 @@ let parse_args ~parse_mountpoint p =
   let port = Lang.to_int (List.assoc "port" p) in
   let transport = Lang.to_http_transport (List.assoc "transport" p) in
   let auth_function = Lang.to_option (List.assoc "auth" p) in
-  let login { Harbor.socket; uri; user; password } =
+  let login { Harbor.socket; meth; uri; query; user; password } =
     let user, password =
       let f = Charset.convert in
       (f user, f password)
@@ -438,7 +448,14 @@ let parse_args ~parse_mountpoint p =
                    Lang.record
                      [
                        ("address", Lang.string (address_resolver socket));
+                       ("method", Lang.string meth);
                        ("uri", Lang.string uri);
+                       ( "query",
+                         Lang.list
+                           (List.map
+                              (fun (k, v) ->
+                                Lang.product (Lang.string k) (Lang.string v))
+                              query) );
                        ("user", Lang.string user);
                        ("password", Lang.string password);
                      ] );
@@ -455,7 +472,9 @@ let parse_args ~parse_mountpoint p =
   if bufferize >= max then
     raise
       (Error.Invalid_value
-         (List.assoc "max" p, "Maximum buffering inferior to pre-buffered data"));
+         ( List.assoc "max" p,
+           "Maximum buffering inferior to pre-buffered data",
+           [] ));
   let pos = Lang.pos p in
   {
     pos;
@@ -545,7 +564,7 @@ let callbacks () =
 
 let input_harbor =
   Lang.add_operator ~base:Modules.input "harbor" ~return_t:(Lang.univ_t ())
-    ~callbacks:(callbacks ()) ~meth:(meth ()) ~category:`Input
+    ~callbacks:(callbacks ()) ~meth:(meth ()) ~category:(`Input `Active)
     ~descr:
       "Create a source that receives a http/icecast stream and forwards it as \
        a stream." (proto Lang.string_t) (fun p ->

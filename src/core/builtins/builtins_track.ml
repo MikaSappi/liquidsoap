@@ -29,3 +29,16 @@ let _ =
     (fun p ->
       let _, s = Lang.to_track (List.assoc "" p) in
       Lang_clock.ClockValue.to_base_value s#clock)
+
+let _ =
+  let track_t = Lang.univ_t ~constraints:[Format_type.track] () in
+  Lang.add_builtin ~base:Modules.track "format" ~category:`Liquidsoap
+    ~descr:
+      "Return the content format of a track. Use `format.description` to \
+       introspect the returned value."
+    [("", track_t, None, None)]
+    Content.Format_val.t
+    (fun p ->
+      let field, s = Lang.to_track (List.assoc "" p) in
+      let fmt = Frame.Fields.find field s#content_type in
+      Content.Format_val.to_value fmt)

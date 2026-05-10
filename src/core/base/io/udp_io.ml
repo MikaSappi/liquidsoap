@@ -224,7 +224,7 @@ let _ =
         with Not_found ->
           raise
             (Error.Invalid_value
-               (fmt, "Cannot get a stream encoder for that format"))
+               (fmt, "Cannot get a stream encoder for that format", []))
       in
       let source = Lang.assoc "" 2 p in
       (new output
@@ -236,7 +236,7 @@ let _ =
   let frame_t = Lang.frame_t (Lang.univ_t ()) Frame.Fields.empty in
   Lang.add_operator ~base:Modules.input "udp"
     ~descr:"Input encoded data from UDP, without any control whatsoever."
-    ~category:`Input
+    ~category:(`Input `Active)
     ~flags:[`Hidden; `Deprecated; `Experimental]
     [
       ("port", Lang.int_t, None, None);
@@ -260,7 +260,8 @@ let _ =
               raise
                 (Error.Invalid_value
                    ( Lang.assoc "" 1 p,
-                     "Cannot get a stream decoder for this MIME" ))
+                     "Cannot get a stream decoder for this MIME",
+                     [] ))
           | Some decoder_factory -> decoder_factory
       in
       (new input ~hostname ~port ~bufferize ~get_stream_decoder

@@ -85,13 +85,13 @@ def protocol.process.parse(~default_timeout, arg) =
       timeout = string.residual(prefix="timeout=", timeout)
       timeout = null.map(string.to_float, timeout) ?? default_timeout
       timeout = min(default_timeout, timeout)
-      {timeout=timeout, extname=extname, cmd=cmd}
+      {timeout = timeout, extname = extname, cmd = cmd}
     else
       let [extname, ...cmd] = args
-      {timeout=default_timeout, extname=extname, cmd=cmd}
+      {timeout = default_timeout, extname = extname, cmd = cmd}
     end
 
-  args.{uri=uri, cmd=string.concat(separator=",", args.cmd)}
+  args.{uri = uri, cmd = string.concat(separator=",", args.cmd)}
 end
 
 # Register the process protocol. Syntax:
@@ -549,9 +549,18 @@ def protocol.ffmpeg(~rlog, ~maxtime, arg) =
         fade_type == "lin"
       then
         ":curve=tri"
-      elsif fade_type == "sin" then ":curve=qsin"
-      elsif fade_type == "log" then ":curve=log"
-      elsif fade_type == "exp" then ":curve=exp"
+      elsif
+        fade_type == "sin"
+      then
+        ":curve=qsin"
+      elsif
+        fade_type == "log"
+      then
+        ":curve=log"
+      elsif
+        fade_type == "exp"
+      then
+        ":curve=exp"
       else
         ""
       end
@@ -712,6 +721,7 @@ protocol.add(
 )
 
 # Text2wave
+# @category Settings
 let settings.protocol.text2wave = settings.make.protocol("text2wave")
 let settings.protocol.text2wave.path =
   settings.make(
@@ -738,6 +748,7 @@ protocol.add(
 )
 
 # Pico2wave
+# @category Settings
 let settings.protocol.pico2wave = settings.make.protocol("pico2wave")
 let settings.protocol.pico2wave.path =
   settings.make(
@@ -771,6 +782,7 @@ protocol.add(
 )
 
 # GTTS
+# @category Settings
 let settings.protocol.gtts = settings.make.protocol("gtts")
 let settings.protocol.gtts.path =
   settings.make(
@@ -812,6 +824,7 @@ protocol.add(
 )
 
 # MacOS say
+# @category Settings
 let settings.protocol.macos_say = settings.make.protocol("macos_say")
 let settings.protocol.macos_say.path =
   settings.make(
@@ -845,7 +858,7 @@ protocol.add(
 )
 
 # Say
-
+# @category Settings
 let settings.protocol.say = settings.make.protocol("say")
 let settings.protocol.say.implementation =
   settings.make(
@@ -976,7 +989,10 @@ def polly_protocol(~rlog:_, ~maxtime:_, text) =
       format == "mp3"
     then
       "mp3"
-    elsif format == "ogg_vorbis" then "ogg"
+    elsif
+      format == "ogg_vorbis"
+    then
+      "ogg"
     else
       "wav"
     end
@@ -1040,7 +1056,10 @@ def synth_protocol(~rlog:_, ~maxtime:_, text) =
         k == "f" or k == "freq" or k == "frequency"
       then
         frequency := float_of_string(v)
-      elsif k == "s" or k == "shape" then shape := v
+      elsif
+        k == "s" or k == "shape"
+      then
+        shape := v
       end
     end
 
@@ -1061,7 +1080,7 @@ def synth_protocol(~rlog:_, ~maxtime:_, text) =
 
       c = clock(s.clock)
       c.start()
-      while not stopped() do c.tick() end
+      while not stopped() do c.tick()  end
       c.stop()
 
       file
@@ -1071,12 +1090,18 @@ def synth_protocol(~rlog:_, ~maxtime:_, text) =
       shape() == "sine"
     then
       synth(sine(duration=duration(), frequency()))
-    elsif shape() == "saw" then synth(saw(duration=duration(), frequency()))
+    elsif
+      shape() == "saw"
+    then
+      synth(saw(duration=duration(), frequency()))
     elsif
       shape() == "square"
     then
       synth(square(duration=duration(), frequency()))
-    elsif shape() == "blank" then synth(blank(duration=duration()))
+    elsif
+      shape() == "blank"
+    then
+      synth(blank(duration=duration()))
     else
       null
     end

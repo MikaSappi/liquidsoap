@@ -1,15 +1,15 @@
 (executable
- (name binary_strings_map_test)
- (modules binary_strings_map_test)
+ (name binary_strings_test)
+ (modules binary_strings_test)
  (libraries liquidsoap_core liquidsoap_optionals))
 
 (rule
- (alias binary_strings_map_test)
+ (alias binary_strings_test)
  (package liquidsoap)
  (deps
-  (:binary_strings_map_test binary_strings_map_test.exe))
+  (:binary_strings_test binary_strings_test.exe))
  (action
-  (run %{binary_strings_map_test})))
+  (run %{binary_strings_test})))
 
 (executable
  (name clock_utils_test)
@@ -345,6 +345,19 @@
   (run %{strings_test})))
 
 (executable
+ (name sub_clock_stop_test)
+ (modules sub_clock_stop_test)
+ (libraries liquidsoap_core liquidsoap_optionals))
+
+(rule
+ (alias sub_clock_stop_test)
+ (package liquidsoap)
+ (deps
+  (:sub_clock_stop_test sub_clock_stop_test.exe))
+ (action
+  (run %{sub_clock_stop_test})))
+
+(executable
  (name timezone)
  (modules timezone)
  (libraries liquidsoap_core liquidsoap_optionals))
@@ -425,7 +438,7 @@
 (alias
  (name citest)
  (deps
-  (alias binary_strings_map_test)
+  (alias binary_strings_test)
   (alias clock_utils_test)
   (alias content_test)
   (alias decoder_test)
@@ -451,6 +464,7 @@
   (alias stream_decoder_test)
   (alias string_test)
   (alias strings_test)
+  (alias sub_clock_stop_test)
   (alias timezone)
   (alias types)
   (alias unifier_test)

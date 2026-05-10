@@ -60,19 +60,32 @@ module Specs = struct
 
   let blit : 'a. 'a content -> int -> 'a content -> int -> int -> unit =
    fun src src_pos dst dst_pos len ->
-    let head = (sub dst 0 (Finite dst_pos)).data in
-    let middle =
-      List.map
-        (fun (pos, x) -> (dst_pos + pos, x))
-        (sub src src_pos (Finite len)).data
-    in
-    let tail_length =
-      match dst.length with
-        | Infinite -> Infinite
-        | Finite dst_len -> Finite (dst_len - len - dst_pos)
-    in
-    let tail = (sub dst (dst_pos + len) tail_length).data in
-    dst.data <- sort (head @ middle @ tail)
+    match (src.data, dst.data) with
+    | [], [] -> ()
+    | [], dst_data ->
+        let head = List.filter (fun (pos, _) -> pos < dst_pos) dst_data in
+        let tail =
+          let dst_end = dst_pos + len in
+          List.filter_map
+            (fun (pos, x) ->
+              if pos >= dst_end then Some (pos - len, x) else None)
+            dst_data
+        in
+        dst.data <- sort (head @ tail)
+    | _ ->
+        let head = (sub dst 0 (Finite dst_pos)).data in
+        let middle =
+          List.map
+            (fun (pos, x) -> (dst_pos + pos, x))
+            (sub src src_pos (Finite len)).data
+        in
+        let tail_length =
+          match dst.length with
+            | Infinite -> Infinite
+            | Finite dst_len -> Finite (dst_len - len - dst_pos)
+        in
+        let tail = (sub dst (dst_pos + len) tail_length).data in
+        dst.data <- sort (head @ middle @ tail)
 
   let copy ~copy d =
     { d with data = List.map (fun (pos, x) -> (pos, copy x)) d.data }
@@ -97,6 +110,8 @@ module Metadata_specs = struct
   let default_params _ = ()
   let parse_param _ _ = Some ()
   let merge _ _ = ()
+  let content_lang_typ = Liquidsoap_lang.Lang_core.string_t
+  let params_to_value () = Liquidsoap_lang.Lang_core.string ""
   let copy = copy ~copy:(fun x -> x)
 
   let checksum d =
@@ -116,7 +131,7 @@ module Metadata = struct
   let lift_data m =
     lift_data
       {
-        Specs.length = Finite (List.fold_left (fun l (p, _) -> max l p) 0 m);
+        Specs.length = Finite (List.fold_left (fun l (p, _) -> Int.max l p) 0 m);
         data = m;
       }
 
@@ -129,7 +144,7 @@ module Metadata = struct
     let length = match length with Infinite -> max_int | Finite len -> len in
     List.filter
       (fun (p, _) -> 0 <= p && p < length)
-      (List.stable_sort (fun (p, _) (p', _) -> compare p p') data)
+      (List.stable_sort (fun (p, _) (p', _) -> Int.compare p p') data)
 end
 
 module Track_marks_specs = struct
@@ -148,6 +163,8 @@ module Track_marks_specs = struct
   let default_params _ = ()
   let parse_param _ _ = Some ()
   let merge _ _ = ()
+  let content_lang_typ = Liquidsoap_lang.Lang_core.string_t
+  let params_to_value () = Liquidsoap_lang.Lang_core.string ""
   let copy = copy ~copy:(fun () -> ())
 
   let checksum d =
@@ -163,7 +180,7 @@ module Track_marks = struct
   let lift_data p =
     lift_data
       {
-        Specs.length = Finite (List.fold_left (fun l p -> max l p) 0 p);
+        Specs.length = Finite (List.fold_left (fun l p -> Int.max l p) 0 p);
         data = List.map (fun p -> (p, ())) p;
       }
 

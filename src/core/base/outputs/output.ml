@@ -55,7 +55,7 @@ class virtual output ~output_kind ?clock ?(name = "") ~infallible
       (* This should be done before the active_operator initializer attaches us
          to a clock. *)
       if !fallibility_check && infallible && source#fallible then
-        raise (Error.Invalid_value (val_source, "That source is fallible."))
+        raise (Error.Invalid_value (val_source, "That source is fallible.", []))
 
     initializer Typing.(source#frame_type <: self#frame_type)
     inherit active_operator ?clock ~name:output_kind [source]
@@ -231,17 +231,32 @@ class virtual ['a] encoded ~output_kind ?clock ~name ~infallible
     method virtual private encode : Frame.t -> 'a
     method virtual private send : 'a -> unit
 
+    val mutable encoding_order : [ `Data_first | `Metadata_first ] =
+      `Metadata_first
+
+    method private set_encoding_order v = encoding_order <- v
+
+    method private send_metadata frame start stop =
+      match
+        List.find_map
+          (fun (pos, m) -> if start <= pos && pos < stop then Some m else None)
+          (Frame.get_all_metadata frame)
+      with
+        | None -> ()
+        | Some m ->
+            self#encode_metadata
+              (Frame.Metadata.Export.from_metadata ~cover:export_cover_metadata
+                 m)
+
     method private send_frame frame =
       let rec output_chunks frame =
         let f start stop =
+          if encoding_order = `Metadata_first then
+            self#send_metadata frame start stop;
           let data = self#encode (Frame.sub frame start (stop - start)) in
           self#send data;
-          match Frame.get_metadata frame start with
-            | None -> ()
-            | Some m ->
-                self#encode_metadata
-                  (Frame.Metadata.Export.from_metadata
-                     ~cover:export_cover_metadata m)
+          if encoding_order = `Data_first then
+            self#send_metadata frame start stop
         in
         function
         | [] -> assert false

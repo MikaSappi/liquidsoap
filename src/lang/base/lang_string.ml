@@ -598,3 +598,15 @@ let length ~encoding s =
         let n = ref 0 in
         String.iter (fun c -> if Char.code c land 0xC0 <> 0x80 then incr n) s;
         !n
+
+(** Strings longer than this or containing invalid UTF-8 are treated as binary.
+*)
+let max_printable_length = ref 4096
+
+(** Detect binary blobs. When [utf8] is [true] (default), any non-UTF-8 string
+    is considered binary — suitable for internally-managed strings that should
+    always be UTF-8. When [utf8] is [false], only the length is checked —
+    suitable for externally-sourced strings that may be in any text encoding. *)
+let is_binary ?(utf8 = true) value =
+  if String.length value > !max_printable_length then true
+  else utf8 && not (String.is_valid_utf_8 value)

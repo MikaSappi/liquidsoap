@@ -83,7 +83,7 @@ let stream_to_record (stream : Ffmpeg_stream_description.stream) =
     | `Subtitle params -> subtitle_stream_to_record params stream.field
     | `Data params -> data_stream_to_record params stream.field
 
-let copy_encoder_of_description ?format
+let copy_encoder_of_description ?format ?mime_type
     (desc : Ffmpeg_stream_description.container) =
   let streams =
     List.filter_map
@@ -97,6 +97,7 @@ let copy_encoder_of_description ?format
   let ffmpeg_format =
     {
       Ffmpeg_format.format = (match format with None -> desc.format | v -> v);
+      mime_type;
       output = `Stream;
       streams;
       interleaved = `Default;
@@ -199,6 +200,16 @@ class ffmpeg_http_input ~dumpfile ~logfile ~bufferize ~max ~replay_meta
           | Some f -> Lang.string f
           | None -> Lang.null
       in
+      let mime_type_value =
+        let from_desc =
+          Option.bind desc.Ffmpeg_stream_description.format
+            Utils.mime_of_container_format
+        in
+        match (mime, from_desc) with
+          | m, _ when String.contains m '/' -> Lang.string m
+          | _, Some m -> Lang.string m
+          | _ -> Lang.null
+      in
       let source_value =
         let base = Lang.source (self :> Source.source) in
         let meth_values =
@@ -216,13 +227,20 @@ class ffmpeg_http_input ~dumpfile ~logfile ~bufferize ~max ~replay_meta
         Lang.meth base (meth_values @ callback_values)
       in
       let copy_encoder =
+        let mime_type =
+          match (mime, desc.Ffmpeg_stream_description.format) with
+            | m, _ when String.contains m '/' -> Some m
+            | _, Some f -> Utils.mime_of_container_format f
+            | _ -> None
+        in
         Lang.val_fun
           [("", "", Some Lang.null)]
           (fun p ->
             let format =
               Lang.to_valued_option Lang.to_string (List.assoc "" p)
             in
-            Lang_encoder.L.format (copy_encoder_of_description ?format desc))
+            Lang_encoder.L.format
+              (copy_encoder_of_description ?format ?mime_type desc))
       in
       let callback_record =
         Lang.record
@@ -235,6 +253,7 @@ class ffmpeg_http_input ~dumpfile ~logfile ~bufferize ~max ~replay_meta
                      Lang.product (Lang.string lbl) (Lang.string v))
                    self#groups) );
             ("format", format_value);
+            ("mime_type", mime_type_value);
             ("streams", Lang.list stream_records);
             ("headers", Lang.metadata_list pending_headers);
             ("copy_encoder", copy_encoder);
@@ -292,6 +311,7 @@ let on_connect_t =
         ("uri", Lang.string_t);
         ("query", Lang.metadata_t);
         ("format", Lang.nullable_t Lang.string_t);
+        ("mime_type", Lang.nullable_t Lang.string_t);
         ("streams", Lang.list_t stream_info_t);
         ("headers", Lang.metadata_t);
         ( "copy_encoder",
@@ -311,8 +331,9 @@ let extra_proto =
       None,
       Some
         "Callback when a source connects. Called with a connection record \
-         containing `uri`, `query`, `format`, `streams`, `headers` and \
-         `copy_encoder`; returns a function that receives the source." );
+         containing `uri`, `query`, `format`, `mime_type`, `streams`, \
+         `headers` and `copy_encoder`; returns a function that receives the \
+         source." );
   ]
 
 let input_harbor_dynamic =
@@ -326,8 +347,8 @@ let _ =
        passed to the `on_connect` callback, which returns a function that \
        receives the source. A `copy_encoder` is provided for passthrough \
        remuxing."
-    ~category:(`Source `Input)
-    (Harbor_input.proto ~buffer_default:0.2 Lang.regexp_t @ extra_proto)
+    ~category:(`Source (`Input `Active))
+    (Harbor_input.proto ~buffer_default:2. Lang.regexp_t @ extra_proto)
     Lang.unit_t
     (fun p ->
       Configure.conf_force_start#set true;

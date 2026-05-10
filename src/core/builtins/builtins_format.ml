@@ -20,10 +20,19 @@
 
  *****************************************************************************)
 
-(** Strings longer than this or containing invalid UTF-8 are treated as binary.
-*)
-let max_printable_length = ref 4096
+let format = Lang.add_module "format"
 
-let is_binary value =
-  String.length value > !max_printable_length
-  || not (String.is_valid_utf_8 value)
+let _ =
+  Lang.add_builtin ~base:format "description" ~category:(`Source `Liquidsoap)
+    ~descr:
+      "Return a description of the given format as a record with optional \
+       methods. For PCM audio: `{ channels, channel_layout }`. For YUV420P \
+       video: `{ width, height }`. For MIDI: `{ channels }`. Returns an empty \
+       record for formats without a description (e.g. metadata, track marks)."
+    [("", Content.Format_val.t, None, None)]
+    (Content.content_types ())
+    (fun p ->
+      let fmt = Content.Format_val.of_value (List.assoc "" p) in
+      match Content.value_of_format fmt with
+        | Some (name, v) -> Lang.meth (Lang.record []) [(name, v)]
+        | None -> Lang.record [])

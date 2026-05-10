@@ -73,7 +73,7 @@ let _ =
       let v = List.assoc "" p in
       let v =
         match v with
-          | String { value = s } when not (Binary_strings_map.is_binary s) -> s
+          | String { value = s } when not (Lang_string.is_binary s) -> s
           | _ -> Value.to_string v
       in
       print_string v;
@@ -163,7 +163,8 @@ let liquidsoap_cache =
               raise
                 (Error.Invalid_value
                    ( mode,
-                     "Invalid mode. Should be one of: \"user\" or \"system\"" ))
+                     "Invalid mode. Should be one of: \"user\" or \"system\"",
+                     [] ))
       in
       match Cache.dir dirtype with
         | None -> Lang.null
@@ -190,7 +191,8 @@ let _ =
               raise
                 (Error.Invalid_value
                    ( mode,
-                     "Invalid mode. Should be one of: \"user\" or \"system\"" ))
+                     "Invalid mode. Should be one of: \"user\" or \"system\"",
+                     [] ))
       in
       let fn = !Hooks.cache_maintenance in
       fn dirtype;

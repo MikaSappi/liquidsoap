@@ -23,7 +23,7 @@ open Mm
 
 (** Play multiple sources at the same time, and perform weighted mix *)
 
-let max_remaining a b = if b = -1 || a = -1 then -1 else max a b
+let max_remaining a b = if b = -1 || a = -1 then -1 else Int.max a b
 
 type 'a field = { position : int; weight : 'a; field : Frame.field }
 type ('a, 'b) track = { mutable fields : 'a field list; data : 'b }
@@ -80,7 +80,8 @@ class virtual base ~name tracks =
              match (pos, data) with
                | _, None -> pos
                | None, Some (_, frame) -> Some (Frame.position frame)
-               | Some p, Some (_, frame) -> Some (max p (Frame.position frame)))
+               | Some p, Some (_, frame) ->
+                   Some (Int.max p (Frame.position frame)))
            None frames)
 
     method effective_source =
@@ -403,7 +404,8 @@ let _ =
                 || Content_timed.Track_marks.is_format format
               then (audio_tracks, video_tracks)
               else
-                raise (Error.Invalid_value (sources_val, "Invalid source type")))
+                raise
+                  (Error.Invalid_value (sources_val, "Invalid source type", [])))
             ([], []) content_type
         in
         let audio_tracks =

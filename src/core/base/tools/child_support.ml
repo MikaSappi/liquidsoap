@@ -34,7 +34,8 @@ class virtual base ~check_self_sync children_val =
                 (Error.Invalid_value
                    ( c,
                      "This source may control its own latency and cannot be \
-                      used with this operator." )))
+                      used with this operator.",
+                     [] )))
           children_val
 
     method virtual id : string
@@ -51,10 +52,12 @@ class virtual base ~check_self_sync children_val =
     val mutable child_clock = None
 
     initializer
+      let controller =
+        Option.value self#child_clock_controller ~default:(`Clock self#clock)
+      in
       child_clock <-
         Some
-          (Clock.create ?controller:self#child_clock_controller ~sync:`Passive
-             ~id:(Clock.id self#clock) ());
+          (Clock.create ~controller ~sync:`Passive ~id:(Clock.id self#clock) ());
 
       self#on_before_streaming_cycle (fun () ->
           if not (Clock.started self#child_clock) then

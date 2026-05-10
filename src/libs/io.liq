@@ -69,9 +69,9 @@ end
 # @param s Source to play.
 def output.audio_video(~id=null, ~fallible=true, ~start=true, s) =
   let {audio, video} = source.tracks(s)
-  output(id=id, fallible=fallible, start=start, source({audio=audio}))
+  output(id=id, fallible=fallible, start=start, source({audio = audio}))
 
-  output.video(id=id, fallible=fallible, start=start, source({video=video}))
+  output.video(id=id, fallible=fallible, start=start, source({video = video}))
 end
 
 def replaces input(~id=null, ~start=true, ~fallible=false) =
@@ -97,7 +97,7 @@ let replaces input = input.pulseaudio
 %endif
 
 # Input an audio stream using the default operator.
-# @category Source / Input
+# @category Source / Input / Active
 # @param ~id Force the value of the source ID.
 # @param ~fallible Allow the child source to fail, in which case the output will be (temporarily) stopped.
 # @param ~start Automatically start outputting whenever possible. If `true`, an infallible (normal) output will start outputting as soon as it is created, and a fallible output will (re)start as soon as its source becomes available for streaming.

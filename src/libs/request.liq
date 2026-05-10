@@ -126,11 +126,11 @@ def request.queue(
 
   s =
     s.{
-      add=add,
-      push=push.{uri=push_uri},
-      length={list.length(queue()) + list.length(s.queue())},
-      set_queue=set_queue,
-      queue=get_queue
+      add = add,
+      push = push.{uri = push_uri},
+      length = {list.length(queue()) + list.length(s.queue())},
+      set_queue = set_queue,
+      queue = get_queue
     }
 
   s.on_wake_up(
@@ -206,7 +206,7 @@ def request.queue(
 end
 
 # Play a request once and become unavailable.
-# @category Source / Input
+# @category Source / Input / Passive
 # @param ~timeout Timeout in seconds for resolving the request.
 # @param r Request to play.
 def request.once(~id=null("request.once"), ~timeout=null, r) =
@@ -239,15 +239,15 @@ def request.once(~id=null("request.once"), ~timeout=null, r) =
 
   s = source.dynamic(self_sync=false, track_sensitive=true, next)
   (s : source_methods).{
-    resolve=fun () -> request.resolve(r, timeout=timeout),
-    request=r
+    resolve = fun () -> request.resolve(r, timeout=timeout),
+    request = r
   }
 end
 
 # Loop on a request. It never fails if the request is static, meaning
 # that it can be fetched once. Typically, http, ftp, say requests are
 # static, and time is not.
-# @category Source / Input
+# @category Source / Input / Passive
 # @param ~prefetch How many requests should be queued in advance.
 # @param ~timeout Timeout (in sec.) to resolve the request.
 # @param ~fallible Enforce fallibility of the request.
@@ -366,7 +366,7 @@ end
 # Loop on a URI. It never fails if the request is static, meaning
 # that it can be fetched once. Typically, http, ftp, say requests are
 # static, and time is not.
-# @category Source / Input
+# @category Source / Input / Passive
 # @param ~prefetch How many requests should be queued in advance.
 # @param ~timeout Timeout (in sec.) to resolve the request.
 # @param ~fallible Enforce fallibility of the request.
@@ -438,8 +438,8 @@ def request.player(~simultaneous=true) =
     end
 
     source.dynamic(s).{
-      play=play,
-      length=
+      play = play,
+      length =
         {
           collect(reload_source=true)
           list.length(l())
@@ -462,6 +462,6 @@ def request.player(~simultaneous=true) =
       next_source := r
     end
 
-    s.{play=play, length={1}}
+    s.{play = play, length = {1}}
   end
 end

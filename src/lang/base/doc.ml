@@ -82,7 +82,7 @@ module Value = struct
 
   (** Kind of source. *)
   type source =
-    [ `Input
+    [ `Input of [ `Active | `Passive ]
     | `Output
     | `Conversion
     | `FFmpegFilter
@@ -118,7 +118,8 @@ module Value = struct
 
   let categories : (category * string) list =
     [
-      (`Source `Input, "Source / Input");
+      (`Source (`Input `Active), "Source / Input / Active");
+      (`Source (`Input `Passive), "Source / Input / Passive");
       (`Source `Output, "Source / Output");
       (`Source `Conversion, "Source / Conversion");
       (`Source `FFmpegFilter, "Source / FFmpeg filter");
@@ -131,7 +132,7 @@ module Value = struct
       (`Source `Liquidsoap, "Source / Liquidsoap");
       (`Source `Fade, "Source / Fade");
       (`Source `Testing, "Source / Testing");
-      (`Track `Input, "Track / Input");
+      (`Track (`Input `Passive), "Track / Input");
       (`Track `Output, "Track / Output");
       (`Track `Conversion, "Track / Conversion");
       (`Track `FFmpegFilter, "Track / FFmpeg filter");
@@ -189,6 +190,7 @@ module Value = struct
     arguments : (string option * argument) list;
     methods : (string * meth) list;
     callbacks : (string * meth) list;
+    sync_description : string option;
   }
 
   let db = ref Map.empty
@@ -285,6 +287,12 @@ module Value = struct
         print e;
         print "\n\n")
       f.examples;
+    (match f.sync_description with
+      | Some s ->
+          print (title_color "Synchronization:\n\n");
+          print (reflow ~indent:2 s);
+          print "\n\n"
+      | None -> ());
     print (title_color "Arguments:\n\n");
     List.iter
       (fun (l, a) ->
@@ -380,6 +388,10 @@ module Value = struct
               ("arguments", arguments);
               ("methods", methods);
               ("callbacks", callbacks);
+              ( "sync_description",
+                Option.fold ~none:`Null
+                  ~some:(fun s -> `String s)
+                  f.sync_description );
             ] ))
     |> List.of_seq
     |> fun l -> `Assoc l
@@ -429,6 +441,11 @@ module Value = struct
                   print "Example:\n\n";
                   Printf.ksprintf print "```liquidsoap\n%s\n```\n\n" e)
                 d.examples;
+              Option.iter
+                (fun s ->
+                  print "Synchronization:\n\n";
+                  Printf.ksprintf print "%s\n\n" s)
+                d.sync_description;
               if d.arguments <> [] then (
                 print "Arguments:\n\n";
                 List.iter
@@ -523,7 +540,7 @@ let parse_doc ~pos doc =
               Re.Pcre.exec
                 ~rex:
                   (Re.Pcre.regexp
-                     "^\\s*@(category|docof|flag|param|method|argsof)\\s*(.*)$")
+                     "^\\s*@(category|docof|flag|param|method|callback|argsof)\\s*(.*)$")
                 line
             in
             let s = Re.Pcre.get_substring sub 2 in
@@ -733,4 +750,5 @@ let parse_doc ~pos doc =
           arguments = params;
           methods;
           callbacks;
+          sync_description = None;
         })

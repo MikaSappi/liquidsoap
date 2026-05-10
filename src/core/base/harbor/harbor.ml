@@ -31,7 +31,9 @@ module type Monad_t = module type of Monad with module Io := Monad.Io
 
 type login_args = {
   socket : Http.socket;
+  meth : string;
   uri : string;
+  query : (string * string) list;
   user : string;
   password : string;
 }
@@ -182,6 +184,7 @@ module type T = sig
 
   val http_auth_check :
     ?query:(string * string) list ->
+    meth:string ->
     uri:string ->
     login:string * (login_args -> bool) ->
     socket ->
@@ -418,7 +421,16 @@ module Make (T : Transport_t) : T with type socket = T.socket = struct
     Duppy.Monad.Io.exec ~priority:`Maybe_blocking h
       (let user, auth_f = s.login in
        let user = if requested_user = "" then user else requested_user in
-       if auth_f { socket = h.Duppy.Monad.Io.socket; uri = "/"; user; password }
+       if
+         auth_f
+           {
+             socket = h.Duppy.Monad.Io.socket;
+             meth = "ICY";
+             uri = "/";
+             query = [];
+             user;
+             password;
+           }
        then Duppy.Monad.return (`Shout, "/", `Icy)
        else (
          log#info "ICY error: invalid password";
@@ -483,7 +495,7 @@ module Make (T : Transport_t) : T with type socket = T.socket = struct
       log#info "Returned 403: Mount taken";
       mount_taken_error ()
 
-  let http_auth_check ?query ~uri ~login socket headers =
+  let http_auth_check ?query ~meth ~uri ~login socket headers =
     (* 401 error model *)
     let http_reply s =
       simple_reply
@@ -518,7 +530,15 @@ module Make (T : Transport_t) : T with type socket = T.socket = struct
                 (user, List.assoc "pass" query)
             | _ -> raise Not_found)
       in
-      auth_check ~auth_f { socket; uri; user; password = pass }
+      auth_check ~auth_f
+        {
+          socket;
+          meth;
+          uri;
+          query = Option.value ~default:[] query;
+          user;
+          password = pass;
+        }
     with
       | Not_authenticated ->
           log#info "Returned 401: wrong auth.";
@@ -527,7 +547,7 @@ module Make (T : Transport_t) : T with type socket = T.socket = struct
           log#info "Returned 401: bad authentication.";
           http_reply "No login / password supplied."
 
-  let exec_http_auth_check ?args ~uri ~login h headers =
+  let exec_http_auth_check ?args ~meth ~uri ~login h headers =
     let query =
       Option.map
         (fun query ->
@@ -535,7 +555,7 @@ module Make (T : Transport_t) : T with type socket = T.socket = struct
         args
     in
     Duppy.Monad.Io.exec ~priority:`Maybe_blocking h
-      (http_auth_check ?query ~uri ~login h.Duppy.Monad.Io.socket headers)
+      (http_auth_check ?query ~meth ~uri ~login h.Duppy.Monad.Io.socket headers)
 
   (* We do not implement anything with this handler for now. *)
   let handle_asterisk_options_request ~hprotocol:_ ~headers:_ _ =
@@ -559,7 +579,16 @@ module Make (T : Transport_t) : T with type socket = T.socket = struct
       if
         (* ICY and Xaudiocast auth check was done before.. *)
         not auth
-      then exec_http_auth_check ~uri ~login:s.login h headers
+      then
+        exec_http_auth_check
+          ~meth:
+            (match smethod with
+              | `Put -> "PUT"
+              | `Post -> "POST"
+              | `Source -> "SOURCE"
+              | `Xaudiocast -> "SOURCE"
+              | `Shout -> "ICY")
+          ~uri ~login:s.login h headers
       else Duppy.Monad.return ()
     in
     try
@@ -694,7 +723,14 @@ module Make (T : Transport_t) : T with type socket = T.socket = struct
     let* () =
       try
         auth_check ~auth_f
-          { socket = h.Duppy.Monad.Io.socket; uri = huri; user; password }
+          {
+            socket = h.Duppy.Monad.Io.socket;
+            meth = "WEBSOCKET";
+            uri = huri;
+            query = [];
+            user;
+            password;
+          }
       with Not_authenticated ->
         log#info "Authentication failed!";
         simple_reply (websocket_error 1011 "Authentication failed.")
@@ -780,7 +816,7 @@ module Make (T : Transport_t) : T with type socket = T.socket = struct
             with Not_found -> ans_400 ~uri "Source is not available"
           in
           let* () =
-            exec_http_auth_check ~args ~uri:mount ~login:s.login h headers
+            exec_http_auth_check ~args ~meth:"GET" ~uri ~login:s.login h headers
           in
           let* () =
             match s.get_mime_type () with
@@ -843,8 +879,9 @@ module Make (T : Transport_t) : T with type socket = T.socket = struct
         (Re.Pcre.get_substring sub 1, Re.Pcre.get_substring sub 2)
       with Not_found -> (uri, "")
     in
+    let protocol_name = protocol_name h in
     let smethod = string_of_verb hmethod in
-    log#info "%s %s request on %s." (protocol_name h) smethod base_uri;
+    log#info "%s request on %s (protocol: %s)." smethod base_uri protocol_name;
     let args = Http.args_split args in
     (* Filter out password *)
     let log_args =
@@ -854,7 +891,10 @@ module Make (T : Transport_t) : T with type socket = T.socket = struct
         Hashtbl.remove log_args "pass";
         log_args)
     in
-    Hashtbl.iter (log#info "%s Arg: %s, value: %s." (protocol_name h)) log_args;
+    Hashtbl.iter
+      (fun key value ->
+        log#info "Arg: %s, value: %s (protocol: %s)." key value protocol_name)
+      log_args;
 
     (* First, try with a registered handler. *)
     let { handler; _ } = find_handler port in
@@ -974,8 +1014,8 @@ module Make (T : Transport_t) : T with type socket = T.socket = struct
       | e ->
           let bt = Printexc.get_backtrace () in
           Utils.log_exception ~log ~bt
-            (Printf.sprintf "%s %s request on uri '%s' failed: %s"
-               (protocol_name h) smethod (Printexc.to_string e) uri);
+            (Printf.sprintf "%s request on uri '%s' with protocol %s failed: %s"
+               smethod protocol_name (Printexc.to_string e) uri);
           ans_500 uri
 
   let handle_client ~port ~icy h =
@@ -1045,7 +1085,9 @@ module Make (T : Transport_t) : T with type socket = T.socket = struct
                      (auth_f
                         {
                           socket = h.Duppy.Monad.Io.socket;
+                          meth = "SOURCE";
                           uri;
+                          query = [];
                           user = valid_user;
                           password;
                         })
@@ -1285,7 +1327,7 @@ module Make (T : Transport_t) : T with type socket = T.socket = struct
     let exec () =
       let { handler; fds; _ } = Concurrent_hashtbl.find opened_ports port in
       let suri = Lang.descr_of_regexp uri in
-      let handlers, removed =
+      let removed, remaining =
         List.partition
           (fun (v, u, _) -> v = verb && suri = Lang.descr_of_regexp u)
           (Atomic.get handler.http)
@@ -1293,7 +1335,7 @@ module Make (T : Transport_t) : T with type socket = T.socket = struct
       if removed <> [] then
         log#important "Removing handler for '%s %s' on port %i"
           (string_of_verb verb) suri port;
-      Atomic.set handler.http handlers;
+      Atomic.set handler.http remaining;
       if
         List.length (Atomic.get handler.sources) = 0
         && List.length (Atomic.get handler.http) = 0

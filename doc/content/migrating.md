@@ -15,6 +15,22 @@ always do a trial run before putting things into production.
 
 ## From 2.4.x to 2.5.x
 
+### Video content type renamed from `canvas` to `yuv420p`
+
+The internal video content type has been renamed from `canvas` to `yuv420p` to
+better reflect what it actually contains: planar YUV420 images. Internally the
+content is still organized as a _canvas_ (a superposition of layers), but the
+type name visible in type annotations and error messages is now `yuv420p`.
+
+If your scripts use type annotations with `canvas`, rename them:
+
+| Old                                       | New                                        |
+| ----------------------------------------- | ------------------------------------------ |
+| `source(video=canvas)`                    | `source(video=yuv420p)`                    |
+| `source(video=canvas(width=W, height=H))` | `source(video=yuv420p(width=W, height=H))` |
+
+The `video.canvas` API (for positioning video elements) is unaffected by this change.
+
 ### Automatic video dimensions detection
 
 Video dimensions (`video.frame.width`/`height`) are now automatically detected from the first decoded video file. This means you no longer need to manually set dimensions in most cases.
@@ -53,6 +69,32 @@ The `add` operator (and related track-level `track.audio.add` and `track.video.a
 Previously, only metadata from the first source effectively added was relayed. This was a long-standing behavior that could be surprising when mixing multiple sources with distinct metadata.
 
 If you were relying on the old behavior of only getting metadata from the first source, you may need to filter or prioritize metadata manually using `metadata.map`.
+
+### `output.harbor` authentication
+
+The `user` and `password` parameters have been removed from `output.harbor`.
+Authentication must now be configured exclusively through the `auth` function:
+
+```liquidsoap
+# Old
+output.harbor(mount="stream", user="source", password="hackme", ...)
+
+# New
+output.harbor(
+  mount="stream",
+  auth=fun({address, login, password}) ->
+    login == "source" and password == "hackme",
+  ...
+)
+```
+
+When no authentication is needed, simply omit the `auth` parameter (it defaults to `null`).
+
+The `burst` parameter is now nullable. Pass `null` to disable the initial burst:
+
+```liquidsoap
+output.harbor(mount="stream", burst=null, ...)
+```
 
 ### Crossfade simplification
 

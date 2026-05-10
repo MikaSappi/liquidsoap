@@ -1,5 +1,6 @@
 # Initialize settings for autocue
-let settings.autocue = {internal=()}
+# @category Settings
+let settings.autocue = {internal = ()}
 
 let settings.autocue.implementations =
   settings.make(
@@ -129,7 +130,7 @@ let settings.autocue.internal.timeout =
     10.
   )
 
-let autocue = {internal=()}
+let autocue = {internal = ()}
 
 # Register an `autocue` implementation.
 # @category Source / Audio processing
@@ -183,7 +184,7 @@ def autocue.internal.ebur128(~duration, ~ratio=50., ~timeout=10., filename) =
           # ebur filter seems to generate invalid PTS.
           a = ffmpeg.filter.asetpts(expr="N/SR/TB", graph, a)
           a = ffmpeg.filter.audio.output(id="filter_output", graph, a)
-          source({audio=a, metadata=track.metadata(a)})
+          source({audio = a, metadata = track.metadata(a)})
         end
 
         ffmpeg.filter.create(mk_filter)
@@ -449,8 +450,7 @@ def autocue.internal.implementation(
 
               if
                 frame_idx() < cross_start_idx()
-              or
-                cross_frame_length() < sustained_endings_min_duration * 10.
+                or cross_frame_length() < sustained_endings_min_duration * 10.
               then
                 error.raise(
                   err,
@@ -472,8 +472,7 @@ def autocue.internal.implementation(
 
               if
                 frame_idx() > cross_start_idx()
-              and
-                frame_idx() < cross_mid_idx()
+                and frame_idx() < cross_mid_idx()
               then
                 if
                   ending_fst_db() < 0.
@@ -497,8 +496,7 @@ def autocue.internal.implementation(
               reset_iter_values := false
               if
                 db_level > lufs_cue_out_threshold_sustained()
-              and
-                not cue_found()
+                and not cue_found()
               then
                 # Cue out
                 cue_out := last_ts()
@@ -743,12 +741,12 @@ def autocue.internal.implementation(
 
         (
           {
-            amplify=
+            amplify =
               "#{lufs_correction} dB",
-            cue_in=cue_in(),
-            cue_out=cue_out(),
-            fade_in=fade_in(),
-            fade_out=fade_out()
+            cue_in = cue_in(),
+            cue_out = cue_out(),
+            fade_in = fade_in(),
+            fade_out = fade_out()
           }
         :
           {
@@ -831,7 +829,6 @@ def autocue.metadata(~implementation, autocue) =
   [
     ("liq_autocue", implementation),
     ...opt_arg("liq_amplify", amplify),
-
     ("liq_cue_in", string(cue_in)),
     ("liq_cue_out", string(cue_out)),
     ("liq_cross_start_duration", string(fade_in)),
@@ -840,7 +837,6 @@ def autocue.metadata(~implementation, autocue) =
     ("liq_fade_in", string(fade_in)),
     ...opt_arg("liq_fade_in_type", fade_in_type),
     ...opt_arg("liq_fade_in_curve", fade_in_curve),
-
     ("liq_fade_out", string(fade_out)),
     ("liq_fade_out_start_next", string(fade_out_start_next)),
     ("liq_fade_out_delay", string(fade_out_delay)),
@@ -945,7 +941,7 @@ end
 # decoded by Liquidsoap and add cue-in/out and crossfade metadata when these
 # values can be computed. This function sets `settings.request.prefetch` to `2`
 # to account for the latency introduced by the `autocue` computation when resolving
-# reausts. For a finer-grained processing, use the `autocue:` protocol.
+# requests. For a finer-grained processing, use the `autocue:` protocol.
 # @category Liquidsoap
 def enable_autocue_metadata() =
   if settings.request.prefetch() == 1 then settings.request.prefetch := 2 end

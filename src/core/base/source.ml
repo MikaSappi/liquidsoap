@@ -106,6 +106,16 @@ class virtual operator ?(stack = []) ?clock ~name sources =
     val mutable sources : (Clock.activation option * operator) list =
       List.map (fun s -> (None, s)) sources
 
+    method release_source s =
+      let rec filter_source = function
+        | (a, s') :: ret when s == s' ->
+            Option.iter s'#sleep a;
+            ret
+        | v :: ret -> v :: filter_source ret
+        | [] -> []
+      in
+      sources <- filter_source sources
+
     method add_watcher w = watchers <- w :: watchers
     method private iter_watchers fn = List.iter fn watchers
     method clock = clock
@@ -331,6 +341,10 @@ class virtual operator ?(stack = []) ?clock ~name sources =
     method private actual_sleep =
       if Atomic.compare_and_set is_up `True `False then (
         source_log#info "Source %s gets down." self#id;
+        (match self#source_type with
+          | `Passive | `Active _ ->
+              Clock.detach self#clock (self :> Clock.source)
+          | `Output _ -> ());
         List.iter (fun fn -> fn ()) on_sleep)
 
     method sleep (src : Clock.activation) =
@@ -476,10 +490,10 @@ class virtual operator ?(stack = []) ?clock ~name sources =
 
     method get_partial_frame cb =
       let data = cb self#peek_frame in
-      consumed <- max consumed (Frame.position data);
+      consumed <- Int.max consumed (Frame.position data);
       data
 
-    method consumed n = consumed <- max consumed n
+    method consumed n = consumed <- Int.max consumed n
     method get_frame = self#get_partial_frame (fun f -> f)
 
     method get_mutable_content field =

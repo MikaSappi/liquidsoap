@@ -121,6 +121,11 @@ and apply ?(pos = []) ~eval_check f l =
           Printexc.raise_with_backtrace
             (Internal_error (Option.to_list apply_pos @ poss, e))
             bt
+      | Error.Invalid_value (v, msg, stack) ->
+          let bt = Printexc.get_raw_backtrace () in
+          Printexc.raise_with_backtrace
+            (Error.Invalid_value (v, msg, Option.to_list apply_pos @ stack))
+            bt
   in
   (* Provide given arguments. *)
   let pe, p =
@@ -440,17 +445,21 @@ let toplevel_add ?doc pat ~t v =
                 List.fold_left
                   (fun (methods, callbacks) m ->
                     let l = m.Type.meth in
-                    (* Override description by the one given in comment if it exists. *)
-                    let d =
-                      match List.assoc_opt l doc.Doc.Value.methods with
-                        | Some m -> m.meth_description
-                        | None -> Some m.doc.meth_descr
+                    (* Override description and category by the one given in comment if it exists. *)
+                    let d, category =
+                      match List.assoc_opt l doc.Doc.Value.callbacks with
+                        | Some cb -> (cb.meth_description, `Callback)
+                        | None -> (
+                            match List.assoc_opt l doc.Doc.Value.methods with
+                              | Some entry ->
+                                  (entry.meth_description, m.doc.category)
+                              | None -> (Some m.doc.meth_descr, m.doc.category))
                     in
                     let t = Repr.string_of_scheme m.scheme in
                     let entry =
                       (l, Doc.Value.{ meth_type = t; meth_description = d })
                     in
-                    match m.doc.category with
+                    match category with
                       | `Method -> (entry :: methods, callbacks)
                       | `Callback -> (methods, entry :: callbacks))
                   ([], []) methods
@@ -458,7 +467,12 @@ let toplevel_add ?doc pat ~t v =
               (methods, callbacks, t)
             in
             let typ = Repr.string_of_type ~generalized t in
-            { doc with typ; arguments; methods; callbacks }
+            let sync_description =
+              match List.assoc_opt "self_sync_description" methods with
+                | Some { meth_description = Some s; _ } when s <> "" -> Some s
+                | _ -> None
+            in
+            { doc with typ; arguments; methods; callbacks; sync_description }
           in
           Some (Lazy.from_fun doc)
   in

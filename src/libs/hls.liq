@@ -1,4 +1,4 @@
-let hls = {playlist=()}
+let hls = {playlist = ()}
 
 # Generate a main HLS playlist
 # @category String
@@ -36,14 +36,7 @@ def hls.playlist.main(~extra_tags=[], ~prefix="", ~version=7, streams) =
 
   string.concat(
     separator="\r\n",
-    [
-      "#EXTM3U",
-      "#EXT-X-VERSION:#{version}",
-      ...extra_tags,
-      ...streams,
-
-      ""
-    ]
+    ["#EXTM3U", "#EXT-X-VERSION:#{version}", ...extra_tags, ...streams, ""]
   )
 end
 
@@ -77,7 +70,7 @@ end
 let input.hls = ()
 
 # Play an HLS stream.
-# @category Source / Input
+# @category Source / Input / Active
 # @param ~id Force the value of the source ID.
 # @param ~reload How often (in seconds) the playlist should be reloaded.
 # @param uri Playlist URI.
@@ -199,7 +192,7 @@ let replaces input.hls = input.ffmpeg
 %endif
 
 # Play an HLS stream.
-# @category Source / Input
+# @category Source / Input / Active
 # @param ~id Force the value of the source ID.
 # @param uri Playlist URI.
 def input.hls(~id=null, uri) =

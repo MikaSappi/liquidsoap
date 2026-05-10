@@ -9,9 +9,9 @@ def ffmpeg.encode.audio(~id=null("ffmpeg.encode.audio"), f, s) =
   source(
     id=id,
     {
-      track_marks=track.track_marks(audio),
-      metadata=track.metadata(audio),
-      audio=audio
+      track_marks = track.track_marks(audio),
+      metadata = track.metadata(audio),
+      audio = audio
     }
   )
 end
@@ -23,9 +23,9 @@ def ffmpeg.raw.encode.audio(~id=null("ffmpeg.raw.encode.audio"), f, s) =
   source(
     id=id,
     {
-      track_marks=track.track_marks(audio),
-      metadata=track.metadata(audio),
-      audio=audio
+      track_marks = track.track_marks(audio),
+      metadata = track.metadata(audio),
+      audio = audio
     }
   )
 end
@@ -37,9 +37,9 @@ def ffmpeg.encode.video(~id=null("ffmpeg.encode.video"), f, s) =
   source(
     id=id,
     {
-      track_marks=track.track_marks(video),
-      metadata=track.metadata(video),
-      video=video
+      track_marks = track.track_marks(video),
+      metadata = track.metadata(video),
+      video = video
     }
   )
 end
@@ -51,9 +51,9 @@ def ffmpeg.raw.encode.video(~id=null("ffmpeg.raw.encode.video"), f, s) =
   source(
     id=id,
     {
-      track_marks=track.track_marks(video),
-      metadata=track.metadata(video),
-      video=video
+      track_marks = track.track_marks(video),
+      metadata = track.metadata(video),
+      video = video
     }
   )
 end
@@ -67,10 +67,10 @@ def ffmpeg.encode.audio_video(~id=null("ffmpeg.encode.audio_video"), f, s) =
   source(
     id=id,
     {
-      track_marks=track.track_marks(audio),
-      metadata=track.metadata(audio),
-      audio=audio,
-      video=video
+      track_marks = track.track_marks(audio),
+      metadata = track.metadata(audio),
+      audio = audio,
+      video = video
     }
   )
 end
@@ -88,10 +88,10 @@ def ffmpeg.raw.encode.audio_video(
   source(
     id=id,
     {
-      track_marks=track.track_marks(audio),
-      metadata=track.metadata(audio),
-      audio=audio,
-      video=video
+      track_marks = track.track_marks(audio),
+      metadata = track.metadata(audio),
+      audio = audio,
+      video = video
     }
   )
 end
@@ -108,9 +108,9 @@ def ffmpeg.decode.audio(~id=null("ffmpeg.decode.audio"), s) =
   source(
     id=id,
     {
-      track_marks=track.track_marks(audio),
-      metadata=track.metadata(audio),
-      audio=audio
+      track_marks = track.track_marks(audio),
+      metadata = track.metadata(audio),
+      audio = audio
     }
   )
 end
@@ -122,9 +122,9 @@ def ffmpeg.raw.decode.audio(~id=null("ffmpeg.raw.decode.audio"), s) =
   source(
     id=id,
     {
-      track_marks=track.track_marks(audio),
-      metadata=track.metadata(audio),
-      audio=audio
+      track_marks = track.track_marks(audio),
+      metadata = track.metadata(audio),
+      audio = audio
     }
   )
 end
@@ -136,9 +136,9 @@ def ffmpeg.decode.video(~id=null("ffmpeg.decode.video"), s) =
   source(
     id=id,
     {
-      track_marks=track.track_marks(video),
-      metadata=track.metadata(video),
-      video=video
+      track_marks = track.track_marks(video),
+      metadata = track.metadata(video),
+      video = video
     }
   )
 end
@@ -150,9 +150,9 @@ def ffmpeg.raw.decode.video(~id=null("ffmpeg.raw.decode.video"), s) =
   source(
     id=id,
     {
-      track_marks=track.track_marks(video),
-      metadata=track.metadata(video),
-      video=video
+      track_marks = track.track_marks(video),
+      metadata = track.metadata(video),
+      video = video
     }
   )
 end
@@ -166,10 +166,10 @@ def ffmpeg.decode.audio_video(~id=null("ffmpeg.decode.audio_video"), s) =
   source(
     id=id,
     {
-      track_marks=track.track_marks(audio),
-      metadata=track.metadata(audio),
-      audio=audio,
-      video=video
+      track_marks = track.track_marks(audio),
+      metadata = track.metadata(audio),
+      audio = audio,
+      video = video
     }
   )
 end
@@ -186,10 +186,10 @@ def ffmpeg.raw.decode.audio_video(
   source(
     id=id,
     {
-      track_marks=track.track_marks(audio),
-      metadata=track.metadata(audio),
-      audio=audio,
-      video=video
+      track_marks = track.track_marks(audio),
+      metadata = track.metadata(audio),
+      audio = audio,
+      video = video
     }
   )
 end
@@ -197,13 +197,13 @@ end
 
 %ifdef input.ffmpeg
 # Stream from a video4linux2 input device, such as a webcam.
-# @category Source / Input
+# @category Source / Input / Active
 # @param ~id Force the value of the source ID.
 # @param ~max_buffer Maximum data buffer in seconds
 # @param ~device V4L2 device to use.
 def input.v4l2(~id=null, ~max_buffer=0.5, ~device="/dev/video0") =
   (input.ffmpeg(id=id, format="v4l2", max_buffer=max_buffer, device) :
-    source(video=canvas)
+    source(video=yuv420p)
   )
 end
 
@@ -223,12 +223,12 @@ def video.testsrc.ffmpeg(
   duration = if null.defined(duration) then ":duration=#{duration}" else "" end
   src = "#{pattern}=#{size}:#{rate}#{duration}"
   (input.ffmpeg(id=id, max_buffer=max_buffer, format="lavfi", src) :
-    source(video=canvas)
+    source(video=yuv420p)
   )
 end
 
 # Read an RTMP stream.
-# @category Source / Input
+# @category Source / Input / Active
 # @param ~max_buffer Maximum data buffer in seconds
 # @param ~listen Act as a RTMP server and wait for incoming connection
 # @param url URL to read RTMP from, in the form `rtmp://IP:PORT/ENDPOINT`
@@ -238,7 +238,7 @@ def input.rtmp(~id=null, ~max_buffer=5., ~listen=true, url) =
     max_buffer=max_buffer,
     format="live_flv",
     self_sync=true,
-    int_args=[("listen", listen ? 1 : 0 )],
+    int_args=[("listen", listen ? 1 : 0)],
     url
   )
 end
@@ -345,11 +345,11 @@ def video.add_text.ffmpeg.raw.filter(
   filters =
     [
       {
-        args=
+        args =
           getter(
             {"x=#{getter.get(x)}:y=#{getter.get(y)}:text=#{escaped_text()}"}
           ),
-        filter=filter
+        filter = filter
       }
     ]
 
@@ -361,11 +361,11 @@ def video.add_text.ffmpeg.raw.filter(
       [
         ...filters,
         {
-          args=
+          args =
             getter(
               {"x=#{getter.get(x)}:y=#{getter.get(y)}:text=#{escaped_text()}"}
             ),
-          filter=
+          filter =
             ffmpeg.filter.drawtext.create(
               fontfile=font,
               fontsize="#{size}",
@@ -439,7 +439,7 @@ def video.add_text.ffmpeg.raw.filter(
       filters
     )
 
-  v.{on_change=on_change, on_metadata=on_metadata}
+  v.{on_change = on_change, on_metadata = on_metadata}
 end
 
 # Display a text. Use this operator inside ffmpeg filters with a input source
@@ -551,10 +551,10 @@ def video.add_text.ffmpeg.internal(
     source(
       id=id,
       {
-        audio=a,
-        video=v,
-        metadata=track.metadata(a),
-        track_marks=track.track_marks(a)
+        audio = a,
+        video = v,
+        metadata = track.metadata(a),
+        track_marks = track.track_marks(a)
       }
     )
   end
@@ -600,6 +600,6 @@ let ffmpeg.filter.audio_video = ()
 def ffmpeg.filter.audio_video.output(~id=null, graph, audio, video) =
   audio = ffmpeg.filter.audio.output(graph, audio.tracks().audio)
   video = ffmpeg.filter.video.output(graph, video.tracks().video)
-  source(id=id, {audio=audio, video=video})
+  source(id=id, {audio = audio, video = video})
 end
 %endif
