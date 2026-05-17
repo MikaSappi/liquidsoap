@@ -732,7 +732,7 @@ let stdlib_native = native
 # @param ~native Use native implementation, when available.
 # @param ~on_loop Function executed when the playlist is about to loop.
 # @param ~on_done Function executed when the playlist is finished.
-# @param ~max_fail When this number of requests fail to resolve, the whole playlists is considered as failed and `on_fail` is called.
+# @param ~max_fail When this number of requests fail to resolve, the whole playlists is considered as failed and `on_fail` is called. A negative value disables the limit.
 # @param ~on_fail Function executed when too many requests failed and returning the contents of a fixed playlist.
 # @param ~timeout Timeout (in sec.) to resolve the request. Defaults to `settings.request.timeout` when `null`.
 # @param ~cue_in_metadata Metadata for cue in points. Disabled if `null`.
@@ -907,7 +907,7 @@ def playlist.list(
       end
 
     if
-      file == "" or (failed_count() >= max_fail and time() < failed_time() + 1.)
+      file == "" or (max_fail >= 0 and failed_count() >= max_fail and time() < failed_time() + 1.)
     then
       # Playlist failed too many times recently, don't try next for now.
       null
@@ -939,7 +939,7 @@ def playlist.list(
 
           # Playlist failed, call handler.
           if
-            failed_count() < max_fail
+            max_fail < 0 or failed_count() < max_fail
           then
             log.info(
               label=id,
@@ -1000,7 +1000,7 @@ end
 #  whole round ("randomize" mode), or pick a random file in the playlist each time \
 #  ("random" mode).
 # @param ~native Use native implementation.
-# @param ~max_fail When this number of requests fail to resolve, the whole playlists is considered as failed and `on_fail` is called.
+# @param ~max_fail When this number of requests fail to resolve, the whole playlists is considered as failed and `on_fail` is called. A negative value disables the limit.
 # @param ~on_done Function executed when the playlist is finished.
 # @param ~on_fail Function executed when too many requests failed and returning the contents of a fixed playlist.
 # @param ~on_reload Callback called after playlist has reloaded.
@@ -1094,7 +1094,7 @@ def replaces playlist(
         ref.incr(failed_loads)
 
         if
-          failed_loads() < max_fail
+          max_fail < 0 or failed_loads() < max_fail
         then
           []
         else
@@ -1190,7 +1190,7 @@ def replaces playlist(
     if_not_reloading(
       fun () ->
         if
-          failed_loads() < max_fail
+          max_fail < 0 or failed_loads() < max_fail
         then
           if null.defined(uri) then playlist_uri := null.get(uri) end
           log(
